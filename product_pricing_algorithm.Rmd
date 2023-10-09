@@ -1,0 +1,146 @@
+---
+title: "Product Pricing Algorithm"
+author: "Created by James Rohloff"
+output: github_document
+params:
+    interactive: FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+    echo = FALSE,
+    message = FALSE,
+    warning = FALSE,
+    out.width = "100%",
+    fig.align = "center")
+```
+
+```{r}
+# Load Required Packages
+library(tidyverse)
+library(tidyquant)
+library(parsnip)
+```
+
+```{r}
+# Source Scripts
+source("scripts/funcs_separate_bike_models.R")
+source("scripts/funcs_get_and_plot_bike_features.R")
+```
+
+```{r}
+# Read CSV File
+bike_data_tbl <- read_csv("data_clean/bike_data.csv")
+```
+
+```{r}
+# Load the XGBoost Model
+model_xgboost_tbl <- read_rds("models/model_xgboost_tbl.rds")
+```
+
+## Problem Statement
+
+The Research and Development department seeks assistance in determining new product ideas and pricing by leveraging the existing product line as a benchmark.
+
+## Solution Summary
+
+We have identified several product gaps in the existing product line, including:
+
+1. Aluminum Over Mountain
+
+2. Aluminum Triathalon
+
+The Data Science Team has developed a pricing model that utilizes predictive analytics to estimate the price of new bicycle models based on the existing fleet. This ensures that new models are competitively priced relative to similar bicycles in the market.
+
+New product predictions for 2 models:
+
+1. Trigger, Over Mountain with Aluminum Frame: $2,903
+
+2. Slice, Triathalon with Aluminum Frame: $2,273
+
+__Next Steps__: Integrate the model into a proof-of-concept web application for deployment to the R&D department.
+
+## Gap Analysis
+
+### Bike List
+
+Our current product portfolio consists of 97 bike models that were analyzed.
+
+```{r}
+get_bike_features()
+```
+
+### Gaps
+
+The visualization segments the full bicycle product line by category and frame material, exposing two product gaps:
+
+1. A new __Aluminum__ line of bikes in the __Over Mountain__ Category
+
+2. A new __Aluminum__ line of bikes in the __Triathalon__ Category
+
+```{r product_gap_analysis}
+plot_bike_features(interactive = params$interactive)
+```
+
+## Price Prediction
+
+New product predictions for 2 models:
+
+1. Trigger, Over Mountain with Aluminum Frame: $2,903
+
+2. Slice, Triathalon with Aluminum Frame: $2,273
+
+```{r}
+# Create New Models
+new_over_mountain_trigger <- tibble(
+    model = "Trigger Al 1",
+    frame_material = "Aluminum",
+    category_2 = "Over Mountain",
+    model_base = "Trigger",
+    model_tier = "Aluminum 1",
+    black      = 0,
+    hi_mod     = 0,
+    team       = 0,
+    red        = 0,
+    ultegra    = 0,
+    dura_ace   = 0,
+    disc       = 0
+) 
+
+new_triathalon_slice_tbl <- tibble(
+    model = "Slice Al 1",
+    frame_material = "Aluminum",
+    category_2 = "Triathalon",
+    model_base = "Slice",
+    model_tier = "Ultegra",
+    black      = 0,
+    hi_mod     = 0,
+    team       = 0,
+    red        = 0,
+    ultegra    = 0,
+    dura_ace   = 0,
+    disc       = 0
+) 
+
+new_bikes_tbl <- bind_rows(new_over_mountain_trigger, 
+                           new_triathalon_slice_tbl)
+```
+
+```{r}
+# Get XGBoost Model
+model_xgboost <- model_xgboost_tbl %>%
+    pull(model) %>%
+    pluck(1)
+```
+
+```{r}
+# Output Predictions in a Table
+model_xgboost %>%
+    predict(new_bikes_tbl) %>%
+    mutate(.pred = scales::dollar(.pred, accuracy = 1)) %>%
+    bind_cols(new_bikes_tbl) %>%
+    gather(key = "New Model Attribute", value = "value", -model, factor_key = TRUE) %>%
+    spread(key = model, value = value) %>%
+    select(`New Model Attribute`, `Trigger Al 1`, `Slice Al 1`) %>%
+    knitr::kable()
+```
